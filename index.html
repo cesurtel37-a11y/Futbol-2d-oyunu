@@ -1,27 +1,37 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Miran Soccer 2026</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Kaleci Miran: Geçilmez Duvar</title>
     <style>
-        body { margin: 0; background: #222; overflow: hidden; font-family: sans-serif; }
-        canvas { display: block; background: #45a049; border: 5px solid #fff; margin: auto; }
-        #ui { position: fixed; top: 10px; width: 100%; text-align: center; color: white; font-size: 20px; font-weight: bold; pointer-events: none; }
-        #controls { position: fixed; bottom: 20px; width: 100%; display: flex; justify-content: space-around; }
-        .btn { width: 70px; height: 70px; background: rgba(255,255,255,0.3); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; touch-action: none; }
-        #goal-msg { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 80px; color: yellow; font-weight: 900; display: none; text-shadow: 4px 4px #000; z-index: 100; }
+        body { margin: 0; background: #222; overflow: hidden; font-family: 'Arial Black', sans-serif; }
+        canvas { display: block; background: #2e7d32; margin: auto; border-bottom: 10px solid #555; }
+        
+        /* Kontrol Paneli */
+        #ui { position: fixed; top: 10px; width: 100%; text-align: center; color: white; text-shadow: 2px 2px #000; }
+        #controls { position: fixed; bottom: 10px; width: 100%; display: flex; justify-content: center; gap: 20px; padding: 10px; }
+        .btn { width: 80px; height: 80px; background: rgba(255,255,255,0.2); border: 3px solid white; border-radius: 15px; color: white; font-size: 30px; display: flex; align-items: center; justify-content: center; user-select: none; -webkit-tap-highlight-color: transparent; }
+        .btn:active { background: rgba(255,255,255,0.5); transform: scale(0.9); }
+
+        #goal-msg { position: fixed; top: 30%; left: 50%; transform: translate(-50%, -50%); font-size: 50px; color: #fbc02d; display: none; z-index: 100; text-align: center; }
     </style>
 </head>
 <body>
 
-<div id="ui">FENERBAHÇE <span id="s1">0</span> - <span id="s2">0</span> RAKİP <br> <small id="time">90:00</small></div>
-<div id="goal-msg">GOOOOOOL!</div>
+<div id="ui">
+    <div style="font-size: 24px;">KURTARIŞ: <span id="saves">0</span> | GOL: <span id="goals">0</span></div>
+    <div id="status" style="color: #fbca03;">RAKİP ŞUTA HAZIRLANIYOR...</div>
+</div>
+
+<div id="goal-msg">ADAMSIN MİRAN! 🔥</div>
 
 <canvas id="game"></canvas>
 
 <div id="controls">
-    <div id="joy" class="btn">JOY</div>
-    <div id="shoot" class="btn" style="background: red;">ŞUT</div>
+    <div class="btn" id="btnL">⬅️</div>
+    <div class="btn" id="btnJump" style="background: #d32f2f;">⬆️</div>
+    <div class="btn" id="btnR">➡️</div>
 </div>
 
 <script>
@@ -30,97 +40,111 @@
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight - 150;
 
-    // 15. Takım Renkleri (Fenerbahçe)
-    let p1 = { x: 100, y: canvas.height/2, s: 0, r: 15, color: "#fbca03", border: "#003366", name: "Miran" };
-    let cpu = { x: canvas.width-100, y: canvas.height/2, r: 15, color: "red", border: "black" };
-    let ball = { x: canvas.width/2, y: canvas.height/2, r: 8, dx: 0, dy: 0, color: "white" };
-    
-    let score1 = 0, score2 = 0;
-    let keys = {};
+    // Ses Efektleri (Yüksek Sesli)
+    const cheerSnd = new Audio('https://www.soundjay.com/human/sounds/applause-01.mp3');
+    const booSnd = new Audio('https://www.soundjay.com/human/sounds/fart-01.mp3'); // Basit bir efekt, istersen değiştirirsin
 
-    // 14. Top Fiziği ve Hareket
-    function update() {
-        // Hareket (Joystick simülasyonu için basit dokunuş)
-        if (keys['w']) p1.y -= 4; if (keys['s']) p1.y += 4;
-        if (keys['a']) p1.x -= 4; if (keys['d']) p1.x += 4;
-
-        // 3. Yapay Zeka (Topu takip eder)
-        if(ball.x > canvas.width/2) {
-            if(cpu.y < ball.y) cpu.y += 2.5; else cpu.y -= 2.5;
-            if(cpu.x < ball.x) cpu.x += 2.5; else cpu.x -= 2.5;
-        }
-
-        // Top sürme ve Çarpışma
-        let dist = Math.hypot(p1.x - ball.x, p1.y - ball.y);
-        if(dist < p1.r + ball.r) {
-            ball.dx = (ball.x - p1.x) * 0.5;
-            ball.dy = (ball.y - p1.y) * 0.5;
-        }
-
-        ball.x += ball.dx; ball.y += ball.dy;
-        ball.dx *= 0.98; ball.dy *= 0.98; // Sürtünme
-
-        // 5. Kaleler ve Skor
-        if(ball.x < 0) { 
-            if(ball.y > canvas.height/3 && ball.y < 2*canvas.height/3) { goal(2); } 
-            else { ball.dx *= -1; ball.x = 1; }
-        }
-        if(ball.x > canvas.width) { 
-            if(ball.y > canvas.height/3 && ball.y < 2*canvas.height/3) { goal(1); }
-            else { ball.dx *= -1; ball.x = canvas.width - 1; }
-        }
-        if(ball.y < 0 || ball.y > canvas.height) ball.dy *= -1;
-    }
-
-    function goal(who) {
-        if(who == 1) score1++; else score2++;
-        document.getElementById("s1").innerText = score1;
-        document.getElementById("s2").innerText = score2;
-        document.getElementById("goal-msg").style.display = "block";
-        setTimeout(() => {
-            document.getElementById("goal-msg").style.display = "none";
-            ball.x = canvas.width/2; ball.y = canvas.height/2;
-            ball.dx = 0; ball.dy = 0;
-        }, 2000);
-    }
+    // Oyun Değişkenleri
+    let saves = 0, goals = 0;
+    let kaleci = { x: canvas.width/2 - 40, y: canvas.height - 100, w: 80, h: 80, dy: 0, jumping: false };
+    let ball = { x: canvas.width/2, y: 50, r: 15, dx: 0, dy: 0, active: false };
+    let kale = { x: 20, y: canvas.height - 120, w: canvas.width - 40, h: 100 };
 
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // 7. Saha Çizimleri
-        ctx.strokeStyle = "rgba(255,255,255,0.5)";
-        ctx.lineWidth = 3;
-        ctx.strokeRect(0, canvas.height/3, 50, canvas.height/3); // Ceza sahası 1
-        ctx.strokeRect(canvas.width-50, canvas.height/3, 50, canvas.height/3); // Ceza sahası 2
-        ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height/2, 50, 0, Math.PI*2); ctx.stroke(); // Orta yuvarlak
 
-        // Oyuncular
-        ctx.fillStyle = p1.color; ctx.beginPath(); ctx.arc(p1.x, p1.y, p1.r, 0, Math.PI*2); ctx.fill();
-        ctx.strokeStyle = p1.border; ctx.stroke();
-        ctx.fillStyle = "white"; ctx.fillText(p1.name, p1.x-15, p1.y-20); // 23. Oyuncu İsmi
+        // Saha ve Kale Çizimi
+        ctx.strokeStyle = "white"; ctx.lineWidth = 8;
+        ctx.strokeRect(kale.x, kale.y, kale.w, kale.h); // Dev Kale
 
-        ctx.fillStyle = cpu.color; ctx.beginPath(); ctx.arc(cpu.x, cpu.y, cpu.r, 0, Math.PI*2); ctx.fill();
-        ctx.strokeStyle = cpu.border; ctx.stroke();
+        // Kaleci Miran (Sarı-Lacivert)
+        ctx.fillStyle = "#fbca03"; 
+        ctx.fillRect(kaleci.x, kaleci.y, kaleci.w, kaleci.h);
+        ctx.strokeStyle = "#003366"; ctx.strokeRect(kaleci.x, kaleci.y, kaleci.w, kaleci.h);
+        ctx.fillStyle = "white"; ctx.font = "12px Arial"; ctx.fillText("MİRAN", kaleci.x+20, kaleci.y+40);
 
         // Top
-        ctx.fillStyle = ball.color; ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
-        
-        requestAnimationFrame(() => { update(); draw(); });
+        if(ball.active) {
+            ctx.fillStyle = "white";
+            ctx.beginPath(); ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI*2); ctx.fill();
+            ctx.strokeStyle = "black"; ctx.stroke();
+        }
+
+        update();
+        requestAnimationFrame(draw);
     }
 
-    // Mobil Kontroller
-    window.addEventListener("keydown", e => keys[e.key] = true);
-    window.addEventListener("keyup", e => keys[e.key] = false);
+    function update() {
+        // Zıplama Fiziği
+        if(kaleci.jumping) {
+            kaleci.y += kaleci.dy;
+            kaleci.dy += 0.8; // Yerçekimi
+            if(kaleci.y >= canvas.height - 100) {
+                kaleci.y = canvas.height - 100;
+                kaleci.jumping = false;
+            }
+        }
 
-    // 2. Şut Sistemi
-    document.getElementById("shoot").addEventListener("touchstart", () => {
-        let dist = Math.hypot(p1.x - ball.x, p1.y - ball.y);
-        if(dist < 40) {
-            ball.dx = 15; // Sert şut
-            ball.dy = (Math.random() - 0.5) * 10;
+        // Top Hareketi
+        if(ball.active) {
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+            // Kurtarış Kontrolü
+            if(ball.x > kaleci.x && ball.x < kaleci.x + kaleci.w && ball.y > kaleci.y && ball.y < kaleci.y + kaleci.h) {
+                saves++;
+                document.getElementById("saves").innerText = saves;
+                ball.active = false;
+                cheerSnd.play();
+                if(saves % 5 === 0) showMessage();
+                setTimeout(shootBall, 1500);
+            }
+
+            // Gol Kontrolü
+            if(ball.y > canvas.height) {
+                goals++;
+                document.getElementById("goals").innerText = goals;
+                ball.active = false;
+                booSnd.play();
+                setTimeout(shootBall, 1500);
+            }
+        }
+    }
+
+    function showMessage() {
+        const msg = document.getElementById("goal-msg");
+        msg.style.display = "block";
+        setTimeout(() => msg.style.display = "none", 2000);
+    }
+
+    function shootBall() {
+        ball.x = canvas.width / 2;
+        ball.y = 100;
+        ball.active = true;
+        // Top kalenin içine rastgele gider
+        ball.dx = (Math.random() - 0.5) * 10;
+        ball.dy = 7 + (saves * 0.2); // Her kurtarışta hızlanır
+        document.getElementById("status").innerText = "ŞUT GELDİ! TUT ONU!";
+    }
+
+    // Buton Kontrolleri
+    document.getElementById("btnL").addEventListener("touchstart", () => { if(kaleci.x > kale.x) kaleci.x -= 40; });
+    document.getElementById("btnR").addEventListener("touchstart", () => { if(kaleci.x < kale.x + kale.w - 80) kaleci.x += 40; });
+    document.getElementById("btnJump").addEventListener("touchstart", () => {
+        if(!kaleci.jumping) {
+            kaleci.dy = -15;
+            kaleci.jumping = true;
         }
     });
 
+    // Klavye Desteği
+    window.addEventListener("keydown", e => {
+        if(e.key === "ArrowLeft" && kaleci.x > kale.x) kaleci.x -= 40;
+        if(e.key === "ArrowRight" && kaleci.x < kale.x + kale.w - 80) kaleci.x += 40;
+        if(e.key === "ArrowUp" && !kaleci.jumping) { kaleci.dy = -15; kaleci.jumping = true; }
+    });
+
+    setTimeout(shootBall, 2000);
     draw();
 </script>
 </body>
